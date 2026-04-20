@@ -285,32 +285,80 @@ contract HealPrescriptionVerifierTest is Test {
 
     // ============ TEST 7: DAILY RESET ============
 
+    // function testDailyReset() public {
+    //     string memory patientId = "P12345";
+    //     (bytes32 hash, bytes memory signature, uint256 expiry) = _createValidPrescription(patientId);
+
+    //     vm.prank(pharmacy);
+    //     verifier.submitVerifiedPrescription(doctorTokenId, hash, signature, patientId, pharmacy, expiry);
+
+    //     uint256 day1 = block.timestamp / 86400;
+    //     assertEq(verifier.getDoctorDailyCount(doctorWithKey, day1), 1);
+
+    //     // Warp to next day
+    //     vm.warp(block.timestamp + 86400 + 1);
+
+    //     uint256 day2 = block.timestamp / 86400;
+    //     assertEq(verifier.getDoctorDailyCount(doctorWithKey, day2), 0, "Counter should reset for new day");
+
+    //     // Should be able to submit prescription on new day
+    //     (bytes32 hash2, bytes memory signature2, uint256 expiry2) = _createValidPrescription("P67890");
+
+    //     vm.prank(pharmacy);
+    //     bool success =
+    //         verifier.submitVerifiedPrescription(doctorTokenId, hash2, signature2, "P67890", pharmacy, expiry2);
+
+    //     assertTrue(success, "Should work on new day");
+    //     assertEq(verifier.getDoctorDailyCount(doctorWithKey, day2), 1);
+    // }
+
+
     function testDailyReset() public {
-        string memory patientId = "P12345";
-        (bytes32 hash, bytes memory signature, uint256 expiry) = _createValidPrescription(patientId);
+    string memory patientId = "P12345";
+    
+    // Set a specific timestamp
+    uint256 startTime = 1641024000; // Jan 1, 2022 00:00:00 UTC
+    vm.warp(startTime);
+    
+    // Submit prescription on day 1
+    (bytes32 hash, bytes memory signature, uint256 expiry) = _createValidPrescription(patientId);
+    vm.prank(pharmacy);
+    verifier.submitVerifiedPrescription(doctorTokenId, hash, signature, patientId, pharmacy, expiry);
+    
+    // Calculate day keys
+    uint256 day1 = startTime / 86400;
+    assertEq(verifier.getDoctorDailyCount(doctorWithKey, day1), 1);
+    
+    // Move to next day (add 86401 seconds to ensure we cross the boundary)
+    uint256 newTime = startTime + 86401; // Add 1 extra second
+    vm.warp(newTime);
+    
+    // Recalculate day key
+    uint256 day2 = newTime / 86400;
+    
+    // Verify we're in a different day
+    console.log("Day1:", day1);
+    console.log("Day2:", day2);
+    assertTrue(day2 > day1, "Day2 should be greater than Day1");
+    
+    // Check counter for new day - should be 0
+    uint256 day2Count = verifier.getDoctorDailyCount(doctorWithKey, day2);
+    assertEq(day2Count, 0, "Counter should be 0 for the new day");
+    
+    // Submit on day 2
+    (bytes32 hash2, bytes memory signature2, uint256 expiry2) = _createValidPrescription("P67890");
+    vm.prank(pharmacy);
+    verifier.submitVerifiedPrescription(doctorTokenId, hash2, signature2, "P67890", pharmacy, expiry2);
+    
+    // Verify day 2 count increased
+    assertEq(verifier.getDoctorDailyCount(doctorWithKey, day2), 1);
+    
+    // Verify day 1 count unchanged
+    assertEq(verifier.getDoctorDailyCount(doctorWithKey, day1), 1);
+}
+    
 
-        vm.prank(pharmacy);
-        verifier.submitVerifiedPrescription(doctorTokenId, hash, signature, patientId, pharmacy, expiry);
 
-        uint256 day1 = block.timestamp / 86400;
-        assertEq(verifier.getDoctorDailyCount(doctorWithKey, day1), 1);
-
-        // Warp to next day
-        vm.warp(block.timestamp + 86400 + 1);
-
-        uint256 day2 = block.timestamp / 86400;
-        assertEq(verifier.getDoctorDailyCount(doctorWithKey, day2), 0, "Counter should reset for new day");
-
-        // Should be able to submit prescription on new day
-        (bytes32 hash2, bytes memory signature2, uint256 expiry2) = _createValidPrescription("P67890");
-
-        vm.prank(pharmacy);
-        bool success =
-            verifier.submitVerifiedPrescription(doctorTokenId, hash2, signature2, "P67890", pharmacy, expiry2);
-
-        assertTrue(success, "Should work on new day");
-        assertEq(verifier.getDoctorDailyCount(doctorWithKey, day2), 1);
-    }
 
     // ============ TEST 8: REPLAY PROTECTION ============
 
