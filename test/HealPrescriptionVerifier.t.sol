@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/HealPrescriptionVerifier.sol";
 import "./mocks/MockDoctorNFT.sol";
+import "../src/HealTypes.sol";
 
 contract HealPrescriptionVerifierTest is Test {
     HealPrescriptionVerifier public verifier;
@@ -28,6 +29,15 @@ contract HealPrescriptionVerifierTest is Test {
         string patientId,
         address indexed pharmacy,
         bytes32 prescriptionHash,
+        uint256 timestamp
+    );
+
+    event PrescriptionVerified(
+        uint256 indexed doctorNFTId,
+        string patientId,
+        address indexed pharmacy,
+        bool verified,
+        string reason,
         uint256 timestamp
     );
 
@@ -285,33 +295,6 @@ contract HealPrescriptionVerifierTest is Test {
 
     // ============ TEST 7: DAILY RESET ============
 
-    // function testDailyReset() public {
-    //     string memory patientId = "P12345";
-    //     (bytes32 hash, bytes memory signature, uint256 expiry) = _createValidPrescription(patientId);
-
-    //     vm.prank(pharmacy);
-    //     verifier.submitVerifiedPrescription(doctorTokenId, hash, signature, patientId, pharmacy, expiry);
-
-    //     uint256 day1 = block.timestamp / 86400;
-    //     assertEq(verifier.getDoctorDailyCount(doctorWithKey, day1), 1);
-
-    //     // Warp to next day
-    //     vm.warp(block.timestamp + 86400 + 1);
-
-    //     uint256 day2 = block.timestamp / 86400;
-    //     assertEq(verifier.getDoctorDailyCount(doctorWithKey, day2), 0, "Counter should reset for new day");
-
-    //     // Should be able to submit prescription on new day
-    //     (bytes32 hash2, bytes memory signature2, uint256 expiry2) = _createValidPrescription("P67890");
-
-    //     vm.prank(pharmacy);
-    //     bool success =
-    //         verifier.submitVerifiedPrescription(doctorTokenId, hash2, signature2, "P67890", pharmacy, expiry2);
-
-    //     assertTrue(success, "Should work on new day");
-    //     assertEq(verifier.getDoctorDailyCount(doctorWithKey, day2), 1);
-    // }
-
 
     function testDailyReset() public {
     string memory patientId = "P12345";
@@ -506,10 +489,15 @@ contract HealPrescriptionVerifierTest is Test {
 
     // ============ TEST 14: EVENT EMISSIONS ============
 
-    function testSubmitEmitsEvent() public {
+    function testSubmitEmitsEvents() public {
         string memory patientId = "P12345";
         (bytes32 hash, bytes memory signature, uint256 expiry) = _createValidPrescription(patientId);
 
+        // First event: PrescriptionVerified
+        vm.expectEmit(true, true, true, true);
+        emit PrescriptionVerified(doctorTokenId, patientId, pharmacy, true, "", block.timestamp);
+
+        // Second event: PrescriptionSubmitted
         vm.expectEmit(true, true, true, true);
         emit PrescriptionSubmitted(doctorTokenId, patientId, pharmacy, hash, block.timestamp);
 
@@ -525,5 +513,20 @@ contract HealPrescriptionVerifierTest is Test {
 
         vm.prank(owner);
         verifier.setDoctorNFT(newNFT);
+    }
+
+    function testVerifyPrescriptionEmitsEvent() public {
+        string memory patientId = "P12345";
+        (bytes32 hash, bytes memory signature, uint256 expiry) = _createValidPrescription(patientId);
+
+        // Expect the PrescriptionVerified event
+        vm.expectEmit(true, true, true, true);
+        emit PrescriptionVerified(doctorTokenId, patientId, pharmacy, true, "", block.timestamp);
+
+        // Call verifyPrescription (view function)
+        (bool verified, ) =
+            verifier.verifyPrescription(doctorTokenId, hash, signature, patientId, pharmacy, expiry);
+        
+        assertTrue(verified);
     }
 }

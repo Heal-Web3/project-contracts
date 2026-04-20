@@ -93,7 +93,7 @@ contract HealPrescriptionVerifier is Ownable {
         string memory patientId,
         address pharmacyAddress,
         uint256 expiry
-    ) public view returns (bool verified, string memory reason) {
+    ) public returns (bool verified, string memory reason) {
         // Check 1: Doctor NFT exists and is active
         try doctorNFT.ownerOf(doctorNFTId) returns (address doctorAddress) {
             if (!doctorNFT.isDoctorActive(doctorNFTId)) {
@@ -122,6 +122,16 @@ contract HealPrescriptionVerifier is Ownable {
             if (patientPharmacyCount[patientId][pharmacyAddress][day] >= MAX_PHARMACIES_PER_PATIENT) {
                 return (false, "Patient visited too many pharmacies today (max 3)");
             }
+
+            // Emit verification success event (works in view calls too)
+            emit PrescriptionVerified(
+                doctorNFTId,
+                patientId,
+                pharmacyAddress,
+                true,
+                "",
+                block.timestamp
+            );
 
             return (true, "");
         } catch {
@@ -152,6 +162,15 @@ contract HealPrescriptionVerifier is Ownable {
             verifyPrescription(doctorNFTId, prescriptionHash, signature, patientId, pharmacyAddress, expiry);
 
         require(verified, reason);
+
+        emit PrescriptionVerified(
+            doctorNFTId,
+            patientId,
+            pharmacyAddress,
+            true,
+            "",
+            block.timestamp
+        );
 
         // Replay protection - ensure prescription hasn't been used
         require(!usedPrescriptions[prescriptionHash], "Prescription already used");
@@ -256,4 +275,6 @@ contract HealPrescriptionVerifier is Ownable {
     function _getDayKey(uint256 timestamp) internal pure returns (uint256) {
         return timestamp / SECONDS_PER_DAY;
     }
+
+
 }
